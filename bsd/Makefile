@@ -1,14 +1,16 @@
 CFLAGS := -std=c++17 -O3 -I/usr/local/include
 
 CC = clang++
+CFLAGS += -pthread
+
 SRC := ../src
-OBJS := objmemory.o bitblt.o main.o interpreter.o
+OBJS := objmemory.o bitblt.o main.o interpreter.o evaluation.o hostservices.o hostbridge.o
 
 Smalltalk: $(OBJS)
-	$(CC) -o $@ $(OBJS) -L/usr/local/lib -lSDL2main -lSDL2
+	$(CC) -pthread -o $@ $(OBJS) -L/usr/local/lib -lSDL2main -lSDL2
 
-$(OBJS): $(SRC)/*.cpp
-	$(CC) $(CFLAGS) -c $<
+%.o: $(SRC)/%.cpp $(wildcard $(SRC)/*.h)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 
 clean:

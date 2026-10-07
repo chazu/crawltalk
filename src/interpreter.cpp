@@ -31,9 +31,12 @@
 #include <cstdlib>
 #include <cmath>
 #include <limits>
+#include <algorithm>
+#include <stdexcept>
 #include "oops.h"
 #include "interpreter.h"
 #include "bitblt.h"
+#include "hostservices.h"
 
 
 inline bool between_and(int value, int min, int max )
@@ -52,6 +55,7 @@ Interpreter::Interpreter(IHardwareAbstractionLayer *halInterface, IFileSystem *f
 
 bool Interpreter::init()
 {
+    requireOwner();
     initializeMethodCache();
     semaphoreIndex = -1;
     if (!memory.loadSnapshot(fileSystem, hal->get_image_name()))
@@ -72,6 +76,15 @@ bool Interpreter::init()
     currentCursor = 0;
     currentDisplayWidth = 0;
     currentDisplayHeight = 0;
+    if (hal->headless()) {
+        headlessSyntaxSelector = symbolNamed("errorInClass:withCode:errorString:");
+        headlessNotifySelector = symbolNamed("openContext:label:contents:");
+        headlessSyntaxClass = globalNamed("SyntaxError");
+        headlessNotifierClass = globalNamed("NotifierView");
+        for (int oop : {headlessSyntaxSelector, headlessNotifySelector, headlessSyntaxClass, headlessNotifierClass})
+            retainNative(oop);
+    }
+    recoverHostRequests();
     return true;
 }
 
@@ -87,6 +100,8 @@ void Interpreter::prepareForCollection()
     storeContextRegisters();
     memory.addRoot(SmalltalkPointer);
     memory.addRoot(activeContext);
+    for (int oop : nativeRoots) memory.addRoot(oop);
+    for (int i = 0; i <= semaphoreIndex; ++i) memory.addRoot(semaphoreList[i]);
     if (newProcess != NilPointer)
     {
         memory.addRoot(newProcess);
@@ -95,6 +110,8 @@ void Interpreter::prepareForCollection()
 }
 void Interpreter::collectionCompleted()
 {
+    for (int oop : nativeRoots) memory.increaseReferencesTo(oop);
+    for (int i = 0; i <= semaphoreIndex; ++i) memory.increaseReferencesTo(semaphoreList[i]);
     memory.increaseReferencesTo(activeContext);
     fetchContextRegisters();
     if (newProcessWaiting)
@@ -898,6 +915,7 @@ void Interpreter::primitiveInputWord()
 // Reference may become invalid on the next cycle of the interpreter...
 int Interpreter::getDisplayBits(int width, int height)
 {
+    requireOwner();
     // Return oop of display bits object
     // sanity checking display width/height
     if (currentDisplay == 0) return 0; // No display yet
@@ -982,6 +1000,9 @@ void Interpreter::primitiveCopyBits()
 
 void Interpreter::primitiveSnapshot()
 {
+    // The Smalltalk snapshot wrapper delivers interruption notifications before
+    // entering this primitive, so scheduler queues are part of the snapshot.
+    if (!hostRequests.empty()) { primitiveFail(); return; }
     /*
      The primitiveSnapshot routine writes the current state of the
      object memory on a file of the same format as the Smalltalk-80 release file.
@@ -996,7 +1017,10 @@ void Interpreter::primitiveSnapshot()
     storeContextRegisters();
 
     memory.garbageCollect();
-    memory.saveSnapshot(fileSystem, hal->get_image_name());
+    if (!memory.saveSnapshot(fileSystem, hal->get_image_name())) {
+        primitiveFail();
+        return;
+    }
     
     /* This is poorly documented by the Bluebook. There is an actual return value that is important.
     see snapshotAs:thenQuit: in the Smalltalk sources. When the system resumes a snapshot the interpreter will be
@@ -2113,8 +2137,10 @@ void Interpreter::checkProcessSwitch()
     
     while (semaphoreIndex >= 0)
     {
-        synchronousSignal(semaphoreList[semaphoreIndex]);
+        int semaphore = semaphoreList[semaphoreIndex];
+        synchronousSignal(semaphore);
         semaphoreIndex = semaphoreIndex - 1;
+        memory.decreaseReferencesTo(semaphore);
     }
     if (newProcessWaiting)
     {
@@ -2244,13 +2270,15 @@ int Interpreter::firstContext()
 // asynchronousSignal:
 void Interpreter::asynchronousSignal(int aSemaphore)
 {
+    requireOwner();
    /* "source"
    	semaphoreIndex <- semaphoreIndex + 1.
    	semaphoreList at: semaphoreIndex put: aSemaphore
    */
+    if (semaphoreIndex + 1 == sizeof(semaphoreList)/sizeof(semaphoreList[0]))
+        throw std::runtime_error("overflow semaphore list");
+    memory.increaseReferencesTo(aSemaphore);
     semaphoreIndex = semaphoreIndex + 1;
-    if (semaphoreIndex == sizeof(semaphoreList)/sizeof(semaphoreList[0]))
-        error("overflow semaphore list");
     semaphoreList[semaphoreIndex] = aSemaphore;
 
 }
@@ -2503,6 +2531,9 @@ void Interpreter::dispatchPrivatePrimitives()
         case 133: // Posix error string
             primitivePosixErrorStringOperation();
             break;
+        case 200: // Versioned host-service interface
+            primitiveHostService();
+            break;
         default:
             primitiveFail();
             break;
@@ -2563,7 +2594,12 @@ void Interpreter::primitivePosixFileOperation()
     
     const int PageSize = 512;   // MUST match page size of PosixFilePage
     
-    static std::uint8_t pageBuffer[PageSize];
+    std::uint8_t pageBuffer[PageSize];
+    auto positionOfPage = [&](int aPage) {
+        std::uint32_t number = positive32BitValueOf(memory.fetchPointer_ofObject(PageNumberIndex, aPage));
+        success(number >= 1 && number <= static_cast<std::uint32_t>(std::numeric_limits<int>::max() / PageSize) + 1);
+        return success() ? static_cast<int>((number - 1) * PageSize) : 0;
+    };
     
     // Code must be legit
     success(code >= 0 && code <= 6);
@@ -2580,12 +2616,10 @@ void Interpreter::primitivePosixFileOperation()
                 if (success())
                 {
                     int fd = (int) positive32BitValueOf(memory.fetchPointer_ofObject(DescriptorIndex, file));
-                    int pageNumber = fetchInteger_ofObject(PageNumberIndex, page);
-                    assert(pageNumber >= 1);
+                    int position = positionOfPage(page);
+                    if (!success()) break;
                     
                     int byteArray = memory.fetchPointer_ofObject(PageInPageIndex, page);
-                    
-                    int position = (pageNumber - 1)*PageSize;
                     
                     if (fileSystem->seek_to(fd, position) != position)
                     {
@@ -2595,6 +2629,7 @@ void Interpreter::primitivePosixFileOperation()
                     
                     // No direct pointer access! Read full page and store byte by byte
                     int bytesInPage = fileSystem->read(fd, (char *) &pageBuffer, PageSize);
+                    if (bytesInPage < 0) { push(FalsePointer); return; }
                     
                     for(int i = 0; i < bytesInPage; i++)
                         memory.storeByte_ofObject_withValue(i, byteArray, pageBuffer[i]);
@@ -2612,12 +2647,10 @@ void Interpreter::primitivePosixFileOperation()
                 if (success())
                 {
                     int fd = (int) positive32BitValueOf(memory.fetchPointer_ofObject(DescriptorIndex, file));
-                    int pageNumber = fetchInteger_ofObject(PageNumberIndex, page);
-                    assert(pageNumber >= 1);
+                    int position = positionOfPage(page);
+                    if (!success()) break;
                     
                     int byteArray = memory.fetchPointer_ofObject(PageInPageIndex, page);
-                    
-                    int position = (pageNumber - 1)*PageSize;
                     
                     if (fileSystem->seek_to(fd, position) != position)
                     {
@@ -2627,6 +2660,8 @@ void Interpreter::primitivePosixFileOperation()
                     
                     // No direct pointer access! Read bytes by byte into staging buffer
                     int bytesInPage = fetchInteger_ofObject(BytesInPageIndex, page);
+                    success(bytesInPage >= 0 && bytesInPage <= PageSize && position <= std::numeric_limits<int>::max() - bytesInPage);
+                    if (!success()) break;
                     // Fill buffer with page data
                     for(int i  = 0; i < bytesInPage; i++)
                         pageBuffer[i] = memory.fetchByte_ofObject(i, byteArray);
@@ -2647,20 +2682,22 @@ void Interpreter::primitivePosixFileOperation()
                 if (success())
                 {
                     
-                    int result;
+                    bool result;
                     int fd = (int) positive32BitValueOf(memory.fetchPointer_ofObject(DescriptorIndex, file));
                     if (page != NilPointer)
                     {
-                        int pageNumber = fetchInteger_ofObject(PageNumberIndex, page);
-                        assert(pageNumber >= 1);
+                        int position = positionOfPage(page);
+                        if (!success()) break;
                         
                         int bytesInPage = fetchInteger_ofObject(BytesInPageIndex, page);
-                        int newSize = (pageNumber-1)*PageSize + bytesInPage;
+                        success(bytesInPage >= 0 && bytesInPage <= PageSize && position <= std::numeric_limits<int>::max() - bytesInPage);
+                        if (!success()) break;
+                        int newSize = position + bytesInPage;
                         result = fileSystem->truncate_to(fd, newSize);
                     }
                     else
                         result = fileSystem->truncate_to(fd, 0);
-                    push(result != -1 ? TruePointer : FalsePointer);
+                    push(result ? TruePointer : FalsePointer);
                 }
                 
             }
@@ -2739,7 +2776,7 @@ void Interpreter::primitivePosixDirectoryOperation()
     int code = popInteger();
     pop(1); // remove receiver
     
-    success(code >= 0 && code <= 3);
+    success(code >= 0 && code <= 4);
     success(arg1 == NilPointer || memory.fetchClassOf(arg1) == ClassStringPointer);
 
     if (success())
@@ -2747,9 +2784,10 @@ void Interpreter::primitivePosixDirectoryOperation()
         switch (code)
         {
             case 0: // Create file
+            case 4: // Create without replacing an existing download destination
             {
                 std::string s = stringFromObject(arg1);
-                int fd = fileSystem->create_file(s.c_str());
+                int fd = code == 4 ? fileSystem->create_file_exclusive(s.c_str()) : fileSystem->create_file(s.c_str());
                 if (fd != -1)
                 {
                     push(positive32BitIntegerFor(fd));
@@ -4037,7 +4075,18 @@ void Interpreter::primitiveBitShift()
     integerReceiver = popInteger();
     if (success())
     {
-        integerResult = integerArgument >= 0 ? integerReceiver << integerArgument : integerReceiver >> -integerArgument;
+        // C++ signed left shifts and shifts by >= the word width are undefined.
+        // Let the image's LargeInteger fallback handle overflowing left shifts.
+        if (integerArgument >= 0) {
+            if (integerReceiver == 0) integerResult = 0;
+            else if (integerArgument > 14) { unPop(2); primitiveFail(); return; }
+            else integerResult = integerReceiver * (1 << integerArgument);
+        } else if (integerArgument <= -15) {
+            integerResult = integerReceiver < 0 ? -1 : 0;
+        } else {
+            int shift = -integerArgument;
+            integerResult = integerReceiver >= 0 ? integerReceiver >> shift : ~((~integerReceiver) >> shift);
+        }
         success(memory.isIntegerValue(integerResult));
     }
     if (success())
@@ -4144,7 +4193,7 @@ int Interpreter::stringObjectFor(const char *s)
     p = s;
     for(int i = 0; i < length; i++)
     {
-        memory.storeByte_ofObject_withValue(i, objectPointer, *p++);
+        memory.storeByte_ofObject_withValue(i, objectPointer, static_cast<unsigned char>(*p++));
     }
     return objectPointer;
 }
@@ -4192,6 +4241,15 @@ void Interpreter::sendSelector_argumentCount(int selector, int count)
     messageSelector = selector;
     argumentCount = count;
     newReceiver = stackValue(argumentCount);
+    if (hal->headless()) {
+        if (selector == headlessSyntaxSelector && newReceiver == headlessSyntaxClass && count == 3) {
+            throw std::runtime_error("Smalltalk syntax error: " + stringFromObject(stackTop()) +
+                " in " + stringFromObject(stackValue(1)));
+        }
+        if (selector == headlessNotifySelector && newReceiver == headlessNotifierClass && count == 3)
+            throw std::runtime_error("Smalltalk debugger: " + stringFromObject(stackValue(1)) +
+                "\n" + stringFromObject(stackTop()));
+    }
     
 #if 0
 #ifdef DEBUGGING_SUPPORT
@@ -4567,6 +4625,7 @@ int Interpreter::fetchByte()
 // cycle
 void Interpreter::cycle()
 {
+    requireOwner();
    /* "source"
    	self checkProcessSwitch.
    	currentBytecode <- self fetchByte.
@@ -5498,5 +5557,3 @@ float Interpreter::popFloat()
     
     return std::nanf("");
 }
-
-

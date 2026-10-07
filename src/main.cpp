@@ -45,6 +45,8 @@
 #ifdef _WIN32
 #define SDL_MAIN_HANDLED
 #include "SDL.h"
+#elif defined(CRAWLTALK_SDL_FLAT)
+#include <SDL.h>
 #else
 #include "SDL2/SDL.h"
 #endif
@@ -850,6 +852,7 @@ public:
             process_events();
             
             check_scheduled_semaphore();
+            interpreter.pollHostServices();
             interpreter.checkLowMemoryConditions();
             
             for(int i = 0; i < vm_options.cycles_per_frame && !quit_signalled; i++)

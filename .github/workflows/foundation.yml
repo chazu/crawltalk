@@ -1,0 +1,20 @@
+name: Foundation
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libsdl2-dev libcurl4-openssl-dev
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew list sdl2 || brew install sdl2
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - run: cmake --build build --parallel 2
+      - run: ctest --test-dir build --output-on-failure
+      - run: python3 scripts/build-image.py

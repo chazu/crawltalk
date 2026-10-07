@@ -27,9 +27,14 @@
 
 #pragma once
 #include <string>
+#include <vector>
+#include <map>
+#include <memory>
+#include <thread>
 #include "objmemory.h"
 #include "filesystem.h"
 #include "hal.h"
+class HostServices;
 
 // Add some helpful methods if defined
 //#define DEBUGGING_SUPPORT
@@ -54,8 +59,17 @@ class Interpreter
 public:
     
     Interpreter(IHardwareAbstractionLayer *halInterface, IFileSystem *fileSystemInterface);
+    ~Interpreter();
     
     bool init();
+
+    // Run source through the image's Compiler. The owner must keep cycling
+    // until evaluationFinished(), then consume the result with finishEvaluation.
+    void beginEvaluation(const std::string& source);
+    bool evaluationFinished() const;
+    std::string finishEvaluation();
+    void collectGarbage() { requireOwner(); memory.garbageCollect(); }
+    void pollHostServices();
     
  
     // cycle
@@ -63,6 +77,7 @@ public:
     
     inline void checkLowMemoryConditions()
     {
+        requireOwner();
         checkLowMemory = true;
     }
     
@@ -79,12 +94,40 @@ public:
     // Allow read-only access to display form data
     inline int fetchWord_ofDislayBits(int wordIndex, int displayBits)
     {
+        requireOwner();
         return memory.fetchWord_ofObject(wordIndex, displayBits);
     }
     
  
 
 private:
+
+    // Native references participate in both reference counting and tracing.
+    class Root {
+    public:
+        Root(Interpreter& vm, int oop);
+        ~Root();
+        Root(const Root&) = delete;
+        Root& operator=(const Root&) = delete;
+        int oop;
+    private:
+        Interpreter& vm;
+    };
+    std::vector<int> nativeRoots;
+    void retainNative(int oop);
+    void releaseNative(int oop);
+    int globalNamed(const std::string& name);
+    int symbolNamed(const std::string& name);
+    int evaluationContext = 0;
+    int headlessSyntaxSelector = 0, headlessNotifySelector = 0;
+    int headlessSyntaxClass = 0, headlessNotifierClass = 0;
+    const std::thread::id ownerThread = std::this_thread::get_id();
+    void requireOwner() const;
+    std::unique_ptr<HostServices> hostServices;
+    std::map<std::uint32_t, int> hostRequests;
+    void primitiveHostService();
+    void recoverHostRequests();
+    int bytesObjectFor(const std::string& bytes);
     
     void error(const char *message);
 
@@ -1450,4 +1493,3 @@ private:
 #endif
     
 };
-

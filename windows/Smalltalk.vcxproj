@@ -21,6 +21,9 @@
   <ItemGroup>
     <ClCompile Include="..\src\bitblt.cpp" />
     <ClCompile Include="..\src\interpreter.cpp" />
+    <ClCompile Include="..\src\evaluation.cpp" />
+    <ClCompile Include="..\src\hostservices.cpp" />
+    <ClCompile Include="..\src\hostbridge.cpp" />
     <ClCompile Include="..\src\main.cpp" />
     <ClCompile Include="..\src\objmemory.cpp" />
   </ItemGroup>
@@ -28,6 +31,7 @@
     <ClInclude Include="..\src\bitblt.h" />
     <ClInclude Include="..\src\filesystem.h" />
     <ClInclude Include="..\src\hal.h" />
+    <ClInclude Include="..\src\hostservices.h" />
     <ClInclude Include="..\src\interpreter.h" />
     <ClInclude Include="..\src\objmemory.h" />
     <ClInclude Include="..\src\oops.h" />

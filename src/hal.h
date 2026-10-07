@@ -32,6 +32,8 @@
 class IHardwareAbstractionLayer
 {
 public:
+    virtual ~IHardwareAbstractionLayer() = default;
+    virtual bool headless() const { return false; }
     // Specify the semaphore to signal on input
     virtual void set_input_semaphore(int semaphore) = 0;
     

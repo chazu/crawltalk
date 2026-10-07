@@ -12,6 +12,9 @@
 		953CC36A246B9408001B3AC8 /* bitblt.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 953CC362246B9408001B3AC8 /* bitblt.cpp */; };
 		953CC36B246B9408001B3AC8 /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 953CC364246B9408001B3AC8 /* main.cpp */; };
 		953CC36C246B9408001B3AC8 /* interpreter.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 953CC366246B9408001B3AC8 /* interpreter.cpp */; };
+		CFA000000000000000000010 /* evaluation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CFA000000000000000000000 /* evaluation.cpp */; };
+		CFA000000000000000000011 /* hostservices.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CFA000000000000000000001 /* hostservices.cpp */; };
+		CFA000000000000000000012 /* hostbridge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = CFA000000000000000000002 /* hostbridge.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -41,6 +44,9 @@
 		953CC368246B9408001B3AC8 /* posixfilesystem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = posixfilesystem.h; path = ../src/posixfilesystem.h; sourceTree = "<group>"; };
 		95B15FC6246B5F9D0014BC0C /* Smalltalk */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Smalltalk; sourceTree = BUILT_PRODUCTS_DIR; };
 		95B15FE1246B5FD70014BC0C /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = /Library/Frameworks/SDL2.framework; sourceTree = "<absolute>"; };
+		CFA000000000000000000000 /* evaluation.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = evaluation.cpp; path = ../src/evaluation.cpp; sourceTree = "<group>"; };
+		CFA000000000000000000001 /* hostservices.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = hostservices.cpp; path = ../src/hostservices.cpp; sourceTree = "<group>"; };
+		CFA000000000000000000002 /* hostbridge.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = hostbridge.cpp; path = ../src/hostbridge.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,6 +69,9 @@
 				953CC363246B9408001B3AC8 /* filesystem.h */,
 				953CC361246B9408001B3AC8 /* hal.h */,
 				953CC366246B9408001B3AC8 /* interpreter.cpp */,
+				CFA000000000000000000002 /* hostbridge.cpp */,
+				CFA000000000000000000001 /* hostservices.cpp */,
+				CFA000000000000000000000 /* evaluation.cpp */,
 				953CC367246B9408001B3AC8 /* interpreter.h */,
 				953CC364246B9408001B3AC8 /* main.cpp */,
 				953CC35E246B9408001B3AC8 /* objmemory.cpp */,
@@ -149,6 +158,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				953CC36C246B9408001B3AC8 /* interpreter.cpp in Sources */,
+				CFA000000000000000000012 /* hostbridge.cpp in Sources */,
+				CFA000000000000000000011 /* hostservices.cpp in Sources */,
+				CFA000000000000000000010 /* evaluation.cpp in Sources */,
 				953CC36A246B9408001B3AC8 /* bitblt.cpp in Sources */,
 				953CC369246B9408001B3AC8 /* objmemory.cpp in Sources */,
 				953CC36B246B9408001B3AC8 /* main.cpp in Sources */,

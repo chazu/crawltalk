@@ -29,3 +29,8 @@
 *.exe
 *.out
 *.app
+/build*/
+/work/
+/osx/Smalltalk
+/linux/Smalltalk
+/bsd/Smalltalk

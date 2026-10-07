@@ -1,16 +1,18 @@
 CC = g++ 
 CFLAGS	:= -O3 -std=c++14
  
+CFLAGS += -pthread
+
 SRC := ../src
-OBJS := objmemory.o bitblt.o main.o interpreter.o
+OBJS := objmemory.o bitblt.o main.o interpreter.o evaluation.o hostservices.o hostbridge.o
  
 Smalltalk: $(OBJS) 
-	$(CC) -F/Library/Frameworks -framework SDL2  -o $@  $^
+	$(CC) -F/Library/Frameworks -framework SDL2  -pthread -o $@  $^
 	
-main.o: $(SRC)/main.cpp
+main.o: $(SRC)/main.cpp $(wildcard $(SRC)/*.h)
 	$(CC) $(CFLAGS) -I/Library/Frameworks/SDL2.framework/Headers -F/Library/Frameworks   -c $(SRC)/main.cpp
  
-%.o: $(SRC)/%.cpp
+%.o: $(SRC)/%.cpp $(wildcard $(SRC)/*.h)
 	$(CC) $(CFLAGS) -c $<  -o $@
 
 clean:

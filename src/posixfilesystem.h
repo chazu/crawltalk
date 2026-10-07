@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <cassert>
+#include <cstring>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -83,6 +84,19 @@ public:
     }
 
     
+    int create_file_exclusive(const char *name)
+    {
+        std::string path = path_for_file(name);
+#ifdef _WIN32
+        int fd = -1;
+        _sopen_s(&fd, path.c_str(), _O_RDWR | _O_BINARY | _O_CREAT | _O_EXCL,
+                 _SH_DENYNO, _S_IREAD | _S_IWRITE);
+        return fd;
+#else
+        return open(path.c_str(), O_RDWR | O_CREAT | O_EXCL, 0600);
+#endif
+    }
+
     int close_file(int file_handle)
     {
 #ifdef _WIN32
@@ -149,7 +163,7 @@ public:
 #ifndef _WIN32
         return fsync(file_handle) != -1;
 #else
-        return true;
+        return _commit(file_handle) == 0;
 #endif
     }
     
@@ -169,6 +183,7 @@ public:
     {
 #ifndef _WIN32
         DIR *dir = opendir(root_directory.c_str());
+        if (!dir) return;
         struct dirent *entry;
 
         while ((entry = readdir(dir)))
@@ -212,7 +227,12 @@ public:
         std::string old_path = path_for_file(old_name);
         std::string new_path = path_for_file(new_name);
 
+#ifdef _WIN32
+        return MoveFileExA(old_path.c_str(), new_path.c_str(),
+                           MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
+#else
         return rename(old_path.c_str(), new_path.c_str()) != -1;
+#endif
     }
 
     bool delete_file(const char* file_name)

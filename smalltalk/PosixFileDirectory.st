@@ -1,0 +1,64 @@
+FileDirectory subclass: #PosixFileDirectory
+	instanceVariableNames: ''
+	classVariableNames: ''
+	poolDictionaries: ''
+	category: 'Files-Posix'!
+
+
+!PosixFileDirectory methodsFor: 'private'!
+
+doPrimitive: code arg1: arg1 arg2: arg2
+	<primitive: 131>! !
+
+!PosixFileDirectory methodsFor: 'enumerating'!
+
+do: aBlock
+	| files |
+	files _ (self fileNames collect: [ : aFileName | self initFileName: aFileName  ]).
+	(ReadStream on:files) do: aBlock! !
+
+!PosixFileDirectory methodsFor: 'file status'!
+
+flush
+	^self! !
+
+!PosixFileDirectory methodsFor: 'removing'!
+
+removeOld: aFile
+	self doPrimitive: 1 arg1: aFile fileName arg2: nil! !
+
+!PosixFileDirectory methodsFor: 'adding'!
+
+add: aFile
+	^self addNew: aFile!
+
+addNew: aFile
+	| fd |
+	fd _ self doPrimitive: 0 arg1: aFile fileName arg2: nil.
+	aFile fd: fd.
+	aFile readWrite: Write.
+	^aFile! !
+
+!PosixFileDirectory methodsFor: 'file accessing'!
+
+fileClass
+	^PosixFile!
+
+fileNames
+	^self
+		doPrimitive: 3
+		arg1: nil
+		arg2: nil!
+
+rename: aFile newName: newFileName
+	self doPrimitive: 2 arg1: newFileName arg2: aFile! !
+"-- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- "!
+
+PosixFileDirectory class
+	instanceVariableNames: ''!
+
+
+!PosixFileDirectory class methodsFor: 'instance creation'!
+
+new
+	^super new setDirectory: nil directoryName: ''! !

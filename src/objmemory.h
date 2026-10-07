@@ -259,7 +259,7 @@ public:
        /* "source"
         ^(value bitShift: 1) + 1
        */
-        return (std::uint16_t) ((value << 1) | 1);
+        return static_cast<std::uint16_t>((static_cast<std::uint32_t>(value) << 1) | 1u);
     }
     
     // fetchByteLengthOf:
@@ -855,4 +855,3 @@ private:
     // Interface to the host operating system
     IHardwareAbstractionLayer *hal;
 };
-

@@ -1,6 +1,22 @@
 ﻿# Smalltalk-80
 ![Screenshot](images/desktop.png)
 
+The modernization foundation adds a reproducible development image, a headless
+Smalltalk runner, and asynchronous native services while retaining the original
+VM/image format. See [the development workflow](docs/modernization.md) and
+[the native extension contract](docs/native-extensions.md).
+
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build
+ctest --test-dir build --output-on-failure
+python3 scripts/build-image.py
+./build/Smalltalk -directory work/development -delay 8
+```
+
+The full build needs SDL2 and libcurl. Headless and HTTP-free build options are
+documented in the development workflow. The original project description follows.
+
 Welcome to my "by the Bluebook" C++ implementation of the Smalltalk-80 system that runs on OS X, Windows, Linux, OpenBSD, and FreeBSD! Since first reading about Smalltalk in the August 1981 issue of Byte magazine, I have always been intrigued by it. At that time all we had were slow 8-bit computers with 4K of RAM barely running fast enough to do anything useful. I was stunned as I read through the article -- this was futuristic alien technology that was surely beyond my reach. In 1988, while attending the University of Washington,  I was exposed to two memorable pieces of technology: The first was Steve Job's NeXTCube and the other was a Tektronix 4404 workstation running Smalltalk-80. Both were, and still are, amazing. It was only fitting that I implemented this Smalltalk on a descendent of the NeXTCube -- a MacBook Pro laptop.
 
 In the late 90s, I discovered that my heroes from Xerox PARC got the "band back together" and released Squeak. I was thrilled to finally have a nice system to play with. But, I didn't care for the look and feel and missed the minimalism I had experienced on the Tektronix system. I also had a copy of the Bluebook and Greenbook and always daydreamed about making my own implementation, but I had no access to the porting kit that was used. That changed a few years ago when I found Mario Wolczko's website: [http://www.wolczko.com/st80/](http://www.wolczko.com/st80/)  He  had the Xerox release 2 virtual image (from magnetic tape) as well as the instruction manual and hand-typed smalltalk sources from the Bluebook!  He also had his implementation, which was written in pre-ANSI C. But, despite many hours, I was not able to get anything to run. I then started to consider making my own implementation.
@@ -105,6 +121,5 @@ The Smalltalk application takes a number of arguments. The only required argumen
 |-vsync|Turn on vertical sync for synchronizing the frame rate with the monitor refresh rate. This can eliminate screen tearing and other artifacts, at the cost of some input latency.| _off_
 |-delay _ms_| if vsync is _not_ used a delay can be specified after presenting the next frame to the GPU. This is useful for lowering the CPU usage while still enjoying the benefits of not using vsync| **0**
 |-2x| Specifies that the display should be doubled. Helpful for farsighted folks, or people running on very high resolution displays | _off_
-
 
 

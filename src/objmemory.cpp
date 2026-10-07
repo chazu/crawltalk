@@ -29,6 +29,8 @@
 #include <cstdint>
 #include <algorithm>
 #include "objmemory.h"
+#include <random>
+#include <string>
 #include "oops.h"
 
 #ifndef GC_REF_COUNT
@@ -234,12 +236,19 @@ bool ObjectMemory::padToPage(IFileSystem *fileSystem, int fd)
 bool ObjectMemory::saveSnapshot(IFileSystem *fileSystem, const char *imageFileName)
 {
     
-    int fd = fileSystem->create_file(imageFileName);
-    if (fd == -1)
-        return false;
-    bool success = saveObjects(fileSystem, fd);
-    
-    fileSystem->close_file(fd);
+    // Keep the previous image intact until the new image is fully written.
+    std::random_device random;
+    std::string temporary;
+    int fd = -1;
+    for (int attempt = 0; attempt < 4 && fd == -1; ++attempt) {
+        temporary = std::string(imageFileName) + ".tmp." + std::to_string(random());
+        fd = fileSystem->create_file_exclusive(temporary.c_str());
+    }
+    if (fd == -1) return false;
+    bool success = saveObjects(fileSystem, fd) && fileSystem->file_flush(fd);
+    if (fileSystem->close_file(fd) == -1) success = false;
+    if (success) success = fileSystem->rename_file(temporary.c_str(), imageFileName);
+    if (!success) fileSystem->delete_file(temporary.c_str());
     return success;
     
 }
@@ -1729,4 +1738,3 @@ int ObjectMemory::attemptToAllocateChunkInCurrentSegment(int size)
 
     return NilPointer; // the end of the linked list was reached and no fit was found
 }
-

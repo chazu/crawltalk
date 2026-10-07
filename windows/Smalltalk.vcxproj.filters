@@ -21,6 +21,9 @@
     <ClCompile Include="..\src\interpreter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\evaluation.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\src\hostservices.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\src\hostbridge.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="..\src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -35,6 +38,7 @@
     <ClInclude Include="..\src\filesystem.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\hostservices.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="..\src\hal.h">
       <Filter>Header Files</Filter>
     </ClInclude>

@@ -33,8 +33,10 @@
 class IFileSystem
 {
 public:
+    virtual ~IFileSystem() = default;
     // File oriented operations
     virtual int create_file(const char *name) = 0;
+    virtual int create_file_exclusive(const char *name) = 0;
     virtual int open_file(const char *name) = 0;
     virtual int close_file(int file_handle) = 0;
 
@@ -58,5 +60,4 @@ public:
     virtual const int last_error() = 0;
     virtual const char *error_text(int code) = 0;
 };
-
 
