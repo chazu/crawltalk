@@ -6,6 +6,10 @@ Smalltalk runner, and asynchronous native services while retaining the original
 VM/image format. See [the development workflow](docs/modernization.md) and
 [the native extension contract](docs/native-extensions.md).
 
+A separate [Go VM design](docs/go-squeak-vm-design.md) proposes running the
+original Squeak 1.x system with modern host services and a staged 64-bit image
+conversion. That VM is a design proposal and is not implemented yet.
+
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build
